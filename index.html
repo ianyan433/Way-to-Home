@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=2.0">
+  <title>地铁归途 · 30站回家路</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #0b1a1f;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', 'Noto Sans SC', 'PingFang SC', sans-serif;
+      padding: 10px;
+    }
+    .game-container {
+      max-width: 750px;
+      width: 100%;
+      background: #1e2f3a;
+      border-radius: 28px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 0 10px rgba(120,180,255,0.3);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      border: 1px solid #3e5a6b;
+    }
+    .status-panel {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      background: #0e1c24;
+      border-radius: 20px;
+      padding: 12px 16px;
+      color: #c2e0f0;
+      font-weight: bold;
+      font-size: 0.9rem;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
+      gap: 8px;
+    }
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #1a2f3b;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+    .stat span:last-child {
+      color: #ffd966;
+      font-weight: bold;
+      margin-left: 4px;
+    }
+    .progress-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0e1c24;
+      border-radius: 20px;
+      padding: 6px 16px;
+    }
+    .progress-bar {
+      width: 140px;
+      height: 10px;
+      background: #2e4555;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #58d68d, #f4d03f);
+      transition: width 0.3s;
+    }
+    canvas {
+      background: #1b2b35;
+      border-radius: 24px;
+      display: block;
+      width: 100%;
+      height: auto;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.5), inset 0 0 12px #2e4b5e;
+      border: 1px solid #446677;
+    }
+    .event-panel {
+      background: #14242e;
+      border-radius: 20px;
+      padding: 16px;
+      color: #edf5fa;
+      box-shadow: inset 0 2px 10px rgba(0,0,0,0.6);
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .event-text {
+      font-size: 1.05rem;
+      line-height: 1.5;
+      letter-spacing: 0.3px;
+      background: #0d1a21;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border-left: 4px solid #5dade2;
+    }
+    .choices {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .choice-btn {
+      background: #1f495e;
+      border: none;
+      color: white;
+      font-weight: bold;
+      padding: 10px 18px;
+      border-radius: 30px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      border-bottom: 3px solid #2e86c1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1 1 auto;
+      justify-content: center;
+    }
+    .choice-btn:hover {
+      background: #2c6080;
+      border-bottom-color: #f1c40f;
+      transform: translateY(-1px);
+    }
+    .choice-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+    .next-btn {
+      background: #2e4053;
+      border: none;
+      color: #f0f0f0;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      align-self: center;
+      transition: 0.2s;
+      background: #3a5a70;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+    .next-btn:hover {
+      background: #4f7b96;
+    }
+    .game-over-message {
+      text-align: center;
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #f9e79f;
+    }
+  </style>
+</head>
+<body>
+<div class="game-container">
+  <!-- 状态栏 -->
+  <div class="status-panel">
+    <div class="stat">💪体力 <span id="staminaVal">100</span></div>
+    <div class="stat">🧠精力 <span id="energyVal">100</span></div>
+    <div class="stat">💰金钱 <span id="moneyVal">50</span></div>
+    <div class="stat">❤️魅力 <span id="charmVal">0</span></div>
+    <div class="stat">⚡权力 <span id="powerVal">0</span></div>
+    <div class="stat">🎒物品 <span id="itemsVal">无</span></div>
+  </div>
+
+  <!-- 车厢画布 -->
+  <canvas id="trainCanvas" width="700" height="320" aria-label="地铁车厢内部视角，简单线条人物"></canvas>
+
+  <!-- 站点进度 -->
+  <div class="progress-wrap">
+    <span style="color:#c2e0f0;">🚇 第 <span id="currentStation">1</span>/30 站</span>
+    <div class="progress-bar">
+      <div id="progressFill" class="progress-fill" style="width: 3%;"></div>
+    </div>
+    <span id="stationName" style="color:#f4d03f;">公司</span>
+  </div>
+
+  <!-- 事件与选择区域 -->
+  <div class="event-panel" id="eventPanel">
+    <div class="event-text" id="eventDescription">你刚下班，踏上地铁。车厢里人还不多，你看见一个空座位……</div>
+    <div class="choices" id="choicesContainer"></div>
+    <button id="nextStationBtn" class="next-btn" style="display: none;">▶ 下一站</button>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // ---------- 游戏核心状态 ----------
+    const TOTAL_STATIONS = 30;
+    const state = {
+      station: 0,            // 0~29 (0=公司起点, 29=家前一站, 到达30即为到家)
+      stamina: 100,
+      energy: 100,
+      money: 50,
+      charm: 0,
+      power: 0,
+      items: [],            // 物品名称数组
+      isSeated: false,      // 当前是否坐着
+      gameOver: false,
+      gameResult: null,     // 'home' 或 'failed'
+      failReason: '',
+      currentEvent: null,   // 当前正在处理的事件对象
+      waitingForChoice: false,
+      // 记录经历日志（用于结局展示）
+      log: []
+    };
+
+    // 事件池 (随机事件)
+    const eventPool = [
+      {
+        id: 'empty_seat',
+        description: '你发现旁边有一个空座位，周围站着几个人。',
+        options: [
+          { text: '👍 立刻坐下', effects: { stamina: 10, energy: 5 }, setSeated: true, log: '你抢到了座位，舒服地坐下。' },
+          { text: '🙏 让给旁边的人', effects: { charm: 8, energy: -2 }, log: '你礼貌地示意他人坐下，赢得微笑。' }
+        ]
+      },
+      {
+        id: 'elderly',
+        description: '一位白发老人颤颤巍巍地站在你附近，抓着扶手。',
+        options: [
+          { text: '🧓 让座 (如果你坐着)', effects: { stamina: -5, charm: 12, energy: 3 }, requiresSeated: true, log: '你起身让座，老人连连道谢。' },
+          { text: '😶 假装没看见', effects: { energy: -8, charm: -3 }, log: '你回避了目光，内心有点不安。' },
+          { text: '💬 口头关心但不让座', effects: { charm: 2, energy: -2 }, log: '你询问老人是否需要帮助，但未让座。' }
+        ]
+      },
+      {
+        id: 'beauty',
+        description: '一位穿着得体的漂亮女生站在你身边，似乎正在看你。',
+        options: [
+          { text: '😊 微笑搭讪', effects: { charm: 10, energy: -5, money: 0 }, log: '你们愉快地聊了几句，气氛很好。' },
+          { text: '📵 低头看手机', effects: { energy: 2 }, log: '你继续刷手机，错过了结识的机会。' },
+          { text: '🪑 让座给她 (如果你坐着)', effects: { charm: 15, stamina: -3 }, requiresSeated: true, log: '你优雅地让座，女生对你甜甜一笑。' }
+        ]
+      },
+      {
+        id: 'salesman',
+        description: '一个推销员挤过来，热情地兜售“神奇能量饮料”。',
+        options: [
+          { text: '💵 购买 (花费15元)', effects: { money: -15, items: ['能量饮料'], stamina: 5, energy: 10 }, log: '你买了一瓶，喝下后感觉精神一振。' },
+          { text: '🙅 拒绝', effects: {}, log: '你摆摆手，推销员悻悻离开。' }
+        ]
+      },
+      {
+        id: 'thief',
+        description: '你瞥见一个可疑的手正伸向旁边乘客的背包！',
+        options: [
+          { text: '🦸 大声制止', effects: { stamina: -10, energy: -5, power: 8, charm: 3 }, log: '你勇敢制止，小偷仓皇逃窜，失主感激涕零。' },
+          { text: '🤐 悄悄提醒失主', effects: { energy: -3, charm: 5 }, log: '你轻碰失主，避免了损失。' },
+          { text: '😨 假装没看到', effects: { energy: -12, charm: -2 }, log: '你内心挣扎，但最终选择沉默。' }
+        ]
+      },
+      {
+        id: 'beggar',
+        description: '一个衣衫褴褛的乞丐向你伸出碗，眼神恳切。',
+        options: [
+          { text: '🪙 施舍5元', effects: { money: -5, energy: 5, charm: 4 }, log: '你递出零钱，乞丐连连鞠躬。' },
+          { text: '😐 摇头拒绝', effects: {}, log: '你移开视线，乞丐默默走开。' }
+        ]
+      },
+      {
+        id: 'conflict',
+        description: '两位乘客因为碰撞争吵起来，气氛紧张。',
+        options: [
+          { text: '🤝 上前劝架', effects: { stamina: -12, power: 5, charm: 3 }, log: '你费了一番口舌平息了争执。' },
+          { text: '👀 旁观', effects: { energy: -4 }, log: '你默默观察，直到乘务员介入。' }
+        ]
+      },
+      {
+        id: 'seat_grab',
+        description: '一个刚空出的座位，旁边有人也盯上了。',
+        options: [
+          { text: '🏃 快速抢坐', effects: { stamina: 5, energy: -5 }, setSeated: true, log: '你眼疾手快，成功坐下。' },
+          { text: '🤷 放弃，站着', effects: {}, log: '你选择继续站着，把座位让给对方。' }
+        ]
+      },
+      {
+        id: 'rain_offer',
+        description: '外面下起了雨，一位没带伞的乘客询问能否共享你的折叠伞（如果你有）。',
+        options: [
+          { text: '☂️ 分享雨伞 (需要物品:折叠伞)', effects: { charm: 10, energy: -2 }, requiresItem: '折叠伞', log: '你们一起撑伞，聊得很开心。' },
+          { text: '😞 我没有伞', effects: {}, log: '你无奈地表示爱莫能助。' }
+        ]
+      },
+      {
+        id: 'power_broker',
+        description: '一个西装男低声说：“我是猎头，看你气质不凡，有名片吗？”',
+        options: [
+          { text: '📇 递出名片 (如果有)', effects: { power: 15, energy: -3 }, requiresItem: '名片', log: '他收下名片，表示会联系你。' },
+          { text: '🙇 婉拒', effects: {}, log: '你礼貌拒绝，继续旅程。' }
+        ]
+      }
+    ];
+
+    // 特殊起始事件 (第一站)
+    const startEvent = {
+      id: 'start',
+      description: '你刚下班，踏上地铁。车厢里人还不多，你看见一个空座位……',
+      options: [
+        { text: '🪑 坐下休息', effects: { stamina: 10 }, setSeated: true, log: '你舒服地坐下，养精蓄锐。' },
+        { text: '🧍 继续站着', effects: {}, log: '你选择站立，保持警觉。' }
+      ]
+    };
+
+    // ---------- UI元素 ----------
+    const canvas = document.getElementById('trainCanvas');
+    const ctx = canvas.getContext('2d');
+    const staminaSpan = document.getElementById('staminaVal');
+    const energySpan = document.getElementById('energyVal');
+    const moneySpan = document.getElementById('moneyVal');
+    const charmSpan = document.getElementById('charmVal');
+    const powerSpan = document.getElementById('powerVal');
+    const itemsSpan = document.getElementById('itemsVal');
+    const stationSpan = document.getElementById('currentStation');
+    const progressFill = document.getElementById('progressFill');
+    const stationNameSpan = document.getElementById('stationName');
+    const eventDesc = document.getElementById('eventDescription');
+    const choicesContainer = document.getElementById('choicesContainer');
+    const nextBtn = document.getElementById('nextStationBtn');
+
+    // 更新所有UI数值
+    function refreshUI() {
+      staminaSpan.textContent = Math.max(0, state.stamina);
+      energySpan.textContent = Math.max(0, state.energy);
+      moneySpan.textContent = state.money;
+      charmSpan.textContent = state.charm;
+      powerSpan.textContent = state.power;
+      itemsSpan.textContent = state.items.length === 0 ? '无' : state.items.join('、');
+
+      const displayStation = state.station + 1;
+      stationSpan.textContent = displayStation;
+      const percent = Math.min(100, (state.station / TOTAL_STATIONS) * 100);
+      progressFill.style.width = `${percent}%`;
+
+      if (state.station === 0) stationNameSpan.textContent = '公司';
+      else if (state.station >= TOTAL_STATIONS) stationNameSpan.textContent = '家';
+      else stationNameSpan.textContent = `第${displayStation}站`;
+
+      drawTrain();
+    }
+
+    // ---------- 绘制地铁车厢 (简单线条风格) ----------
+    function drawTrain() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 背景色
+      ctx.fillStyle = '#1b2b35';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 车厢轮廓
+      ctx.strokeStyle = '#5d7a8c';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+      // 车顶扶手横杆
+      ctx.beginPath();
+      ctx.strokeStyle = '#aab7c4';
+      ctx.lineWidth = 2;
+      ctx.moveTo(30, 50);
+      ctx.lineTo(canvas.width - 30, 50);
+      ctx.stroke();
+
+      // 吊环 (几个)
+      for (let i = 0; i < 6; i++) {
+        let x = 70 + i * 100;
+        ctx.beginPath();
+        ctx.strokeStyle = '#bdc3c7';
+        ctx.lineWidth = 1.5;
+        ctx.arc(x, 70, 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, 62);
+        ctx.lineTo(x, 50);
+        ctx.stroke();
+      }
+
+      // 左右座椅 (长条)
+      ctx.fillStyle = '#3a4e5c';
+      ctx.fillRect(20, canvas.height - 70, 70, 25);
+      ctx.fillRect(canvas.width - 90, canvas.height - 70, 70, 25);
+      ctx.strokeStyle = '#778b9c';
+      ctx.strokeRect(20, canvas.height - 70, 70, 25);
+      ctx.strokeRect(canvas.width - 90, canvas.height - 70, 70, 25);
+
+      // 窗户
+      ctx.fillStyle = '#1e3340';
+      ctx.fillRect(110, 40, 120, 70);
+      ctx.fillRect(270, 40, 120, 70);
+      ctx.fillRect(430, 40, 120, 70);
+      ctx.strokeStyle = '#5f7d94';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(110, 40, 120, 70);
+      ctx.strokeRect(270, 40, 120, 70);
+      ctx.strokeRect(430, 40, 120, 70);
+
+      // 绘制人物 (简单线条)
+      // 绘制几个随机NPC (固定位置，但可用颜色区分)
+      drawStickFigure(150, 250, '#95a5a6', false); // 站立乘客
+      drawStickFigure(280, 240, '#b0b0b0', false);
+      drawStickFigure(500, 245, '#a0a0a0', false);
+      drawStickFigure(600, 255, '#8d8d8d', false);
+
+      // 绘制坐着的乘客 (左侧座椅)
+      drawSeatedFigure(45, canvas.height - 80, '#7f8c8d');
+      drawSeatedFigure(canvas.width - 65, canvas.height - 80, '#7f8c8d');
+
+      // 绘制玩家
+      const playerColor = '#3498db'; // 蓝色突出玩家
+      if (state.isSeated) {
+        // 玩家坐在右侧座椅 (靠中间位置)
+        drawSeatedFigure(canvas.width - 140, canvas.height - 80, playerColor);
+      } else {
+        // 站立玩家 (靠近中间偏右)
+        drawStickFigure(400, 230, playerColor, true);
+      }
+
+      // 如果当前事件涉及特殊人物，可额外绘制 (简单处理：在事件描述中用文字表现)
+    }
+
+    function drawStickFigure(x, y, color, isPlayer = false) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = isPlayer ? 2.5 : 1.8;
+      // 头
+      ctx.beginPath();
+      ctx.arc(x, y - 25, 10, 0, Math.PI * 2);
+      ctx.stroke();
+      // 身体
+      ctx.beginPath();
+      ctx.moveTo(x, y - 15);
+      ctx.lineTo(x, y + 15);
+      ctx.stroke();
+      // 腿
+      ctx.beginPath();
+      ctx.moveTo(x, y + 15);
+      ctx.lineTo(x - 8, y + 35);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y + 15);
+      ctx.lineTo(x + 8, y + 35);
+      ctx.stroke();
+      // 手臂
+      ctx.beginPath();
+      ctx.moveTo(x, y - 5);
+      ctx.lineTo(x - 15, y + 5);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y - 5);
+      ctx.lineTo(x + 15, y + 5);
+      ctx.stroke();
+    }
+
+    function drawSeatedFigure(x, y, color) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.8;
+      // 头
+      ctx.beginPath();
+      ctx.arc(x, y - 18, 8, 0, Math.PI * 2);
+      ctx.stroke();
+      // 身体 (坐姿缩短)
+      ctx.beginPath();
+      ctx.moveTo(x, y - 10);
+      ctx.lineTo(x, y + 5);
+      ctx.stroke();
+      // 腿向前伸
+      ctx.beginPath();
+      ctx.moveTo(x, y + 5);
+      ctx.lineTo(x - 12, y + 20);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y + 5);
+      ctx.lineTo(x + 12, y + 20);
+      ctx.stroke();
+      // 手臂
+      ctx.beginPath();
+      ctx.moveTo(x, y - 5);
+      ctx.lineTo(x - 10, y + 0);
+      ctx.stroke();
+    }
+
+    // ---------- 游戏逻辑 ----------
+    function applyEffects(effects, setSeated = false, logText = '') {
+      if (effects.stamina) state.stamina = Math.min(150, Math.max(0, state.stamina + effects.stamina));
+      if (effects.energy) state.energy = Math.min(150, Math.max(0, state.energy + effects.energy));
+      if (effects.money) state.money = Math.max(0, state.money + effects.money);
+      if (effects.charm) state.charm += effects.charm;
+      if (effects.power) state.power += effects.power;
+      if (effects.items && Array.isArray(effects.items)) {
+        effects.items.forEach(item => {
+          if (!state.items.includes(item)) state.items.push(item);
+        });
+      }
+      if (setSeated !== undefined && setSeated === true) {
+        state.isSeated = true;
+      }
+      if (logText) {
+        state.log.push(`第${state.station+1}站: ${logText}`);
+      }
+      checkGameOver();
+    }
+
+    function checkGameOver() {
+      if (state.stamina <= 0) {
+        state.gameOver = true;
+        state.gameResult = 'failed';
+        state.failReason = '体力耗尽，你晕倒在了地铁上，被送往医院……';
+      } else if (state.energy <= 0) {
+        state.gameOver = true;
+        state.gameResult = 'failed';
+        state.failReason = '精力枯竭，你精神恍惚，错过了下车，迷失在城市中。';
+      }
+      if (state.gameOver) {
+        showGameOver();
+      }
+    }
+
+    function advanceStation() {
+      if (state.gameOver) return;
+      if (state.waitingForChoice) return; // 还在等待选择
+
+      state.station++;
+      // 到站后可能失去座位 (有人下车但随机)
+      if (state.isSeated && Math.random() < 0.3) {
+        state.isSeated = false;
+        state.log.push(`第${state.station+1}站: 有人需要座位，你起身了。`);
+      }
+
+      if (state.station >= TOTAL_STATIONS) {
+        // 到家！
+        state.gameOver = true;
+        state.gameResult = 'home';
+        showGameOver();
+        return;
+      }
+
+      // 随机触发事件 (概率0.7，第一站后)
+      if (Math.random() < 0.7 || state.station === 0) {
+        triggerRandomEvent();
+      } else {
+        // 无事件，显示普通继续
+        eventDesc.textContent = `列车平稳行驶... 第${state.station+1}站到了。`;
+        choicesContainer.innerHTML = '';
+        nextBtn.style.display = 'block';
+        state.waitingForChoice = false;
+        refreshUI();
+      }
+    }
+
+    function triggerRandomEvent() {
+      // 过滤掉因条件不足无法触发的选项？先随机选一个事件
+      const available = eventPool.filter(ev => {
+        // 检查是否有选项需要特定条件但玩家不满足，但事件本身仍可触发（只是部分选项不可用）
+        return true; // 全部可选，选项内做判断
+      });
+      if (available.length === 0) {
+        // 无事件
+        eventDesc.textContent = `周围很安静，你随着地铁摇晃。`;
+        choicesContainer.innerHTML = '';
+        nextBtn.style.display = 'block';
+        state.waitingForChoice = false;
+        refreshUI();
+        return;
+      }
+      const randomEvent = available[Math.floor(Math.random() * available.length)];
+      state.currentEvent = randomEvent;
+      state.waitingForChoice = true;
+      nextBtn.style.display = 'none';
+      displayEvent(randomEvent);
+    }
+
+    function displayEvent(event) {
+      eventDesc.textContent = event.description;
+      choicesContainer.innerHTML = '';
+
+      event.options.forEach((opt, index) => {
+        // 检查条件
+        let disabled = false;
+        if (opt.requiresSeated && !state.isSeated) disabled = true;
+        if (opt.requiresItem && !state.items.includes(opt.requiresItem)) disabled = true;
+
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.innerHTML = opt.text;
+        if (disabled) {
+          btn.disabled = true;
+          btn.style.opacity = '0.5';
+          btn.style.cursor = 'not-allowed';
+          btn.title = '当前不满足条件';
+        }
+        btn.addEventListener('click', () => handleChoice(event, index));
+        choicesContainer.appendChild(btn);
+      });
+
+      refreshUI();
+    }
+
+    function handleChoice(event, choiceIndex) {
+      if (state.gameOver || !state.waitingForChoice) return;
+      const choice = event.options[choiceIndex];
+      if (choice.requiresSeated && !state.isSeated) return;
+      if (choice.requiresItem && !state.items.includes(choice.requiresItem)) return;
+
+      // 应用效果
+      applyEffects(choice.effects, choice.setSeated, choice.log || '');
+      state.waitingForChoice = false;
+      state.currentEvent = null;
+
+      if (state.gameOver) {
+        showGameOver();
+        return;
+      }
+
+      // 事件后准备下一站
+      eventDesc.textContent = '事件已处理，点击“下一站”继续旅程。';
+      choicesContainer.innerHTML = '';
+      nextBtn.style.display = 'block';
+      refreshUI();
+    }
+
+    function showGameOver() {
+      state.waitingForChoice = false;
+      choicesContainer.innerHTML = '';
+      nextBtn.style.display = 'none';
+
+      if (state.gameResult === 'home') {
+        let summary = '🏠 恭喜！你成功到家了！\n\n';
+        summary += `📊 最终属性：\n体力 ${state.stamina} | 精力 ${state.energy} | 金钱 ${state.money}\n魅力 ${state.charm} | 权力 ${state.power}\n`;
+        summary += `🎒 物品：${state.items.length ? state.items.join('、') : '无'}\n\n`;
+        if (state.charm >= 20) summary += '❤️ 你魅力出众，可能收获了浪漫缘分。\n';
+        if (state.power >= 15) summary += '⚡ 你展现出领袖气质，未来权力在握。\n';
+        if (state.money >= 80) summary += '💰 钱包鼓鼓，财富自由近在眼前。\n';
+        if (state.items.includes('能量饮料')) summary += '🥤 能量饮料让你精神焕发。\n';
+        summary += '\n📜 旅程日志：\n' + state.log.slice(-8).join('\n');
+        eventDesc.innerText = summary;
+      } else if (state.gameResult === 'failed') {
+        eventDesc.innerText = `❌ ${state.failReason}\n游戏结束。刷新页面重新开始。`;
+      }
+      refreshUI();
+    }
+
+    // 重置/开始游戏
+    function startGame() {
+      // 初始状态
+      state.station = 0;
+      state.stamina = 100;
+      state.energy = 100;
+      state.money = 50;
+      state.charm = 0;
+      state.power = 0;
+      state.items = [];
+      state.isSeated = false;
+      state.gameOver = false;
+      state.gameResult = null;
+      state.failReason = '';
+      state.log = [];
+      state.waitingForChoice = false;
+
+      // 展示起始事件
+      state.currentEvent = startEvent;
+      state.waitingForChoice = true;
+      nextBtn.style.display = 'none';
+      displayEvent(startEvent);
+      refreshUI();
+    }
+
+    // 下一站按钮
+    nextBtn.addEventListener('click', () => {
+      if (state.gameOver) return;
+      advanceStation();
+    });
+
+    // 额外：允许初始自动开始
+    window.addEventListener('load', () => {
+      startGame();
+    });
+
+    // 如果玩家想重新开始 (可以手动刷新，但也可以加个按钮，这里简单起见忽略)
+  })();
+</script>
+</body>
+</html>
